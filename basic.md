@@ -6,6 +6,8 @@ leveldb是一个写性能十分优秀的存储引擎，是典型的LSM树(Log St
 
 ### 整体架构
 
+![](./pic/leveldb_arch.jpeg)
+
 leveldb中主要由以下几个重要的部件构成：
 
 * memtable

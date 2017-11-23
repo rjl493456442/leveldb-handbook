@@ -51,6 +51,8 @@ singleWriter开始写入时，标志着第一个chunk开始写入。在写入的
 
 ### 日志读
 
+
+
 <img src="./pic/journal_read.jpeg" width="600">
 
 

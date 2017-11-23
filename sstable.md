@@ -19,7 +19,7 @@ leveldb（或者说LSM树）设计Minor Compaction的目的是为了：
 
 ### SStable文件格式
 
-####物理结构
+#### 物理结构
 
 为了提高整体的读写效率，一个sstable文件按照固定大小进行块划分，默认每个块的大小为4KiB。每个Block中，除了存储数据以外，还会存储两个额外的辅助字段：
 
@@ -50,7 +50,7 @@ CRC校验码是循环冗余校验校验码，校验范围包括数据以及压�
 
 data block中存储的数据是leveldb中的keyvalue键值对。其中一个data block中的数据部分（不包括压缩类型、CRC校验码）按逻辑又以下图进行划分：
 
-<img src="./pic/datablock.jpeg" alt="Drawing" style="width: 500px;"/>
+<img src="./pic/datablock.jpeg" style="width: 500px;"/>
 
 第一部分用来存储keyvalue数据。由于sstable中所有的keyvalue对都是严格按序存储的，用了节省存储空间，leveldb并不会为每一对keyvalue对都存储完整的key值，而是存储与**上一个key非共享的部分**，避免了key重复内容的存储。
 
