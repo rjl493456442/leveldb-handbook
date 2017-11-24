@@ -50,7 +50,7 @@ CRC校验码是循环冗余校验校验码，校验范围包括数据以及压�
 
 data block中存储的数据是leveldb中的keyvalue键值对。其中一个data block中的数据部分（不包括压缩类型、CRC校验码）按逻辑又以下图进行划分：
 
-<img src="./pic/datablock.jpeg" style="width: 500px;"/>
+![](./pic/datablock.jpeg)
 
 第一部分用来存储keyvalue数据。由于sstable中所有的keyvalue对都是严格按序存储的，用了节省存储空间，leveldb并不会为每一对keyvalue对都存储完整的key值，而是存储与**上一个key非共享的部分**，避免了key重复内容的存储。
 
@@ -91,7 +91,7 @@ entry three: key=duck,value=v3
 
 此外，第一个restart point为0（偏移量），第二个restart point为16，restart point共有两个，因此一个datablock数据段的末尾添加了下图所示的数据：
 
-<img src="./pic/datablock_example_2.jpeg" alt="Drawing" style="width: 450px;"/>
+![](./pic/datablock_example_2.jpeg)
 
 尾部数据记录了每一个restart point的值，以及所有restart point的个数。
 
@@ -149,7 +149,7 @@ indexblock包含若干条记录，每一条记录代表一个data block的索引
 >
 >  如此设计的目的是，依次比较index block中记录信息的key值即可实现快速定位目标数据在哪个data block中。
 
-<img src="./pic/indexblock_format.jpeg" alt="Drawing" style="width: 550px;"/>
+![](./pic/indexblock_format.jpeg)
 
 
 
@@ -157,7 +157,7 @@ indexblock包含若干条记录，每一条记录代表一个data block的索引
 
 footer大小固定，为48字节，用来存储meta index block与index block在sstable中的索引信息，另外尾部还会存储一个magic word，内容为："http://code.google.com/p/leveldb/"字符串sha1哈希的前8个字节。
 
-<img src="./pic/footer_format.jpeg" alt="Drawing" style="width: 450px;"/>
+![](./pic/footer_format.jpeg)
 
 
 
