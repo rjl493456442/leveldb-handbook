@@ -17,5 +17,6 @@ leveldb-handbook
    sstable.md
    cache.md
    bloomfilter.md
+   compaction.md
 
 
