@@ -111,9 +111,9 @@ filter block存储的数据主要可以分为两部分：（1）过滤数据（2
 
 在读取filter block中的内容时，可以首先读出`filter offset's offset`的值，然后依次读取`filter i offset`，根据这些offset分别读出`filter data`。
 
-Base Lg默认值为11，表示每2KB的数据，创建一个新的过滤器来存放过滤数据。控制filter data的大小也是为了避免一个IO读取过多的数据。
+Base Lg默认值为11，表示每2KB的数据，创建一个新的过滤器来存放过滤数据。
 
-因为filter data比block data更小，所以读取IO消耗更小。
+一个sstable只有一个filter block，其内存储了所有block的filter数据. 具体来说，filter_data_k 包含了所有起始位置处于 [base*k, base*(k+1)]范围内的block的key的集合的filter数据，按数据大小而非block切分主要是为了尽量均匀，以应对存在一些block的key很多，另一些block的key很少的情况。
 
 >leveldb中，特殊的sstable文件格式设计简化了许多操作，例如：
 >
@@ -125,13 +125,9 @@ meta index block用来存储filter block在整个sstable中的索引信息。
 
 meta index block只存储一条记录：
 
-该记录的key为：
+该记录的key为："filter."与过滤器名字组成的常量字符串
 
-​	"filter."与过滤器名字组成的常量字符串
-
-该记录的value为：
-
-​	filter block在sstable中的索引信息序列化后的内容，索引信息包括：（1）在sstable中的偏移量（2）数据长度。
+该记录的value为：filter block在sstable中的索引信息序列化后的内容，索引信息包括：（1）在sstable中的偏移量（2）数据长度。
 
 ### index block结构
 
@@ -288,6 +284,112 @@ func (w *Writer) Append(key, value []byte) error {
 
 ### 读操作
 
-读操作作为写操作的逆过程，当充分理解了写操作，将会帮助理解读操作。
+读操作作为写操作的逆过程，充分理解了写操作，将会帮助理解读操作。
 
- 
+下图为在一个sstable中查找某个数据项的流程图：
+
+![](./pic/sstable_read_procedure.jpeg)
+
+ 大致流程为：
+
+1. 首先判断“文件句柄”cache中是否有指定sstable文件的文件句柄，若存在，则直接使用cache中的句柄；否则打开该sstable文件，**按规则读取该文件的元数据**，将新打开的句柄存储至cache中；
+2. 利用sstable中的index block进行快速的数据项位置定位，得到该数据项有可能存在的**两个**data block；
+3. 利用index block中的索引信息，首先打开第一个可能的data block；
+4. 利用filter block中的过滤信息，判断指定的数据项是否存在于该data block中，若存在，则创建一个迭代器对data block中的数据进行迭代遍历，寻找数据项；若不存在，则结束该data block的查找；
+5. 若在第一个data block中找到了目标数据，则返回结果；若未查找成功，则打开第二个data block，重复步骤4；
+6. 若在第二个data block中找到了目标数据，则返回结果；若未查找成功，则返回`Not Found`错误信息；
+
+**缓存**
+
+在leveldb中，使用cache来缓存两类数据：
+
+* sstable文件句柄及其元数据；
+* data block中的数据；
+
+因此在打开文件之前，首先判断能够在cache中命中sstable的文件句柄，避免重复读取的开销。
+
+**元数据读取**
+
+![](./pic/sstable_metadata.jpeg)
+
+由于sstable复杂的文件组织格式，因此在打开文件后，需要读取必要的元数据，才能访问sstable中的数据。
+
+元数据读取的过程可以分为以下几个步骤：
+
+1. 读取文件的最后48字节的利用，即**Footer**数据；
+2. 读取Footer数据中维护的(1) Meta Index Block(2) Index Block两个部分的索引信息并记录，以提高整体的查询效率；
+3. 利用meta index block的索引信息读取该部分的内容；
+4. 遍历meta index block，查看是否存在“有用”的filter block的索引信息，若有，则记录该索引信息；若没有，则表示当前sstable中不存在任何过滤信息来提高查询效率；
+
+**数据项的快速定位**
+
+sstable中存在多个data block，倘若依次进行“遍历”显然是不可取的。但是由于一个sstable中所有的数据项都是按序排列的，因此可以利用有序性已经index block中维护的索引信息快速定位目标数据项可能存在的data block。
+
+一个index block的文件结构示意图如下：
+
+![](./pic/indexblock.jpeg)
+
+index block是由一系列的键值对组成，每一个键值对表示一个data block的索引信息。
+
+键值对的key为该data block中数据项key的最大值，value为该data block的索引信息（offset, length）。
+
+因此若需要查找目标数据项，仅仅需要依次比较index block中的这些索引信息，倘若目标数据项的key大于某个data block中最大的key值，则该data block中必然不存在目标数据项。故通过这个步骤的优化，可以直接确定目标数据项落在哪个data block的范围区间内。
+
+> 值得注意的是，与data block一样，index block中的索引信息同样也进行了key值截取，即第二个索引信息的key并不是存储完整的key，而是存储与前一个索引信息的key不共享的部分，区别在于data block中这种范围的划分粒度为16，而index block中为2 。
+>
+> 也就是说，index block连续两条索引信息会被作为一个最小的“比较单元“，在查找的过程中，若第一个索引信息的key小于目标数据项的key，则紧接着会比较第三条索引信息的key。
+>
+> 这就导致最终目标数据项的范围区间为某”两个“data block。
+
+![](./pic/index_block_find.jpeg)
+
+**过滤data block**
+
+若sstable存有每一个data block的过滤数据，则可以利用这些过滤数据对data block中的内容进行判断，“确定”目标数据是否存在于data block中。
+
+过滤的原理为：
+
+* 若过滤数据显示目标数据不存在于data block中，则目标数据**一定不**存在于data block中；
+* 若过滤数据显示目标数据存在于data block中，则目标数据**可能存在**于data block中；
+
+具体的原理可能参见《布隆过滤器》。
+
+因此利用过滤数据可以过滤掉部分data block，避免发生无谓的查找。
+
+**查找data block**
+
+![](./pic/datablock_format.jpeg)
+
+在data block中查找目标数据项是一个简单的迭代遍历过程。虽然data block中所有数据项都是按序排序的，但是作者并没有采用“二分查找”来提高查找的效率，而是使用了更大的查找单元进行快速定位。
+
+与index block的查找类似，data block中，以16条记录为一个查找单元，若entry 1的key小于目标数据项的key，则下一条比较的是entry 17。
+
+因此查找的过程中，利用更大的查找单元快速定位目标数据项可能存在于哪个区间内，之后依次比较判断其是否存在与data block中。
+
+可以看到，sstable很多文件格式设计（例如restart point， index block，filter block，max key）在查找的过程中，都极大地提升了整体的查找效率。
+
+### 文件特点
+
+#### 只读性
+
+sstable文件为compaction的结果原子性的产生，在其余时间是只读的。
+
+#### 完整性
+
+一个sstable文件，其辅助数据：
+
+* 索引数据
+* 过滤数据
+
+都直接存储于同一个文件中。当读取是需要使用这些辅助数据时，无须额外的磁盘读取；当sstable文件需要删除时，无须额外的数据删除。简要地说，辅助数据随着文件一起创建和销毁。
+
+#### 并发访问友好性
+
+由于sstable文件具有只读性，因此不存在同一个文件的读写冲突。
+
+leveldb采用引用计数维护每个文件的引用情况，当一个文件的计数值大于0时，对此文件的删除动作会等到该文件被释放时才进行，因此实现了无锁情况下的并发访问。
+
+#### Cache一致性
+
+sstable文件为只读的，因此cache中的数据永远于sstable文件中的数据保持一致。
+
