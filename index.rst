@@ -18,5 +18,6 @@ leveldb-handbook
    cache.md
    bloomfilter.md
    compaction.md
+   version.md
 
 
