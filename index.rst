@@ -10,14 +10,14 @@ leveldb-handbook
    :maxdepth: 2
    :caption: 内容:
 
-   basic.md
-   rwopt.md
-   journal.md
-   memorydb.md
-   sstable.md
-   cache.md
-   bloomfilter.md
-   compaction.md
-   version.md
+   basic
+   rwopt
+   journal
+   memorydb
+   sstable
+   cache
+   bloomfilter
+   compaction
+   version
 
 
