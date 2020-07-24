@@ -44,7 +44,7 @@ batch中会维护一个size值，用于表示其中包含的数据量的大小�
 key值编码
 ~~~~~~~~~
 
-当数据项从batch中写入到内存数据库中是，需要将一个key值的转换，即在leveldb内部，所有数据项的key是经过特殊编码的，这种格式称为internalKey。
+当数据项从batch中写入到内存数据库中时，需要将一个key值的转换，即在leveldb内部，所有数据项的key是经过特殊编码的，这种格式称为internalKey。
 
 .. figure:: ./pic/internalkey.jpeg
    :alt: 
