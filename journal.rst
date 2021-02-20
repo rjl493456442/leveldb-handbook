@@ -59,7 +59,7 @@ number（2）本次日志记录中所包含的put/del操作的个数。
 
 日志写入流程较为简单，在leveldb内部，实现了一个journal的writer。首先调用Next函数获取一个singleWriter，这个singleWriter的作用就是写入\ **一条journal记录**\ 。
 
-singleWriter开始写入时，标志着第一个chunk开始写入。在写入的过程中，不断判断writer中buffer的大小，若超过32KiB，将chunk开始到现在做为一个完整的chunk，为其计算header之后将整个block写入文件。与此同时reset
+singleWriter开始写入时，标志着第一个chunk开始写入。在写入的过程中，不断判断writer中buffer的大小，若超过32KiB，将chunk开始到现在做为一个完整的chunk，为其计算header之后将整个chunk写入文件。与此同时reset
 buffer，开始新的chunk的写入。
 
 若一条journal记录较大，则可能会分成几个chunk存储在若干个block中。
