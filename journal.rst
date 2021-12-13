@@ -7,7 +7,7 @@
    :alt: 
 
 在leveldb中，有两个memory db，以及对应的两份日志文件。其中一个memory
-db是可读写的，当这个db的数据量超过预定的上限时，便会转换成一个不可读的memory
+db是可读写的，当这个db的数据量超过预定的上限时，便会转换成一个不可写的memory
 db，与此同时，与之对应的日志文件也变成一份frozen log。
 
 而新生成的immutable memory db则会由后台的minor
