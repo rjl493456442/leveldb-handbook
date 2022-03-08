@@ -71,7 +71,7 @@ block中的数据部分（不包括压缩类型、CRC校验码）按逻辑又以
 .. figure:: ./pic/datablock.jpeg
    :alt: 
 
-第一部分用来存储keyvalue数据。由于sstable中所有的keyvalue对都是严格按序存储的，用了节省存储空间，leveldb并不会为每一对keyvalue对都存储完整的key值，而是存储与\ **上一个key非共享的部分**\ ，避免了key重复内容的存储。
+第一部分用来存储keyvalue数据。由于sstable中所有的keyvalue对都是严格按序存储的，为了节省存储空间，leveldb并不会为每一对keyvalue对都存储完整的key值，而是存储与\ **上一个key非共享的部分**\ ，避免了key重复内容的存储。
 
 每间隔若干个keyvalue对，将为该条记录重新存储一个完整的key。重复该过程（默认间隔值为16），每个重新存储完整key的点称之为Restart
 point。
